@@ -1,16 +1,69 @@
-# React + Vite
+# DECP Web App - Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, responsive web application for the Department Engagement & Career Platform built with React, Vite, and Tailwind CSS.
 
-Currently, two official plugins are available:
+## 🚀 Quick Start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Prerequisites
+- Node.js 16+ 
+- npm or yarn
 
-## React Compiler
+### Installation & Running
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# Install dependencies
+npm install
 
-## Expanding the ESLint configuration
+# Start development server
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The app will be available at **http://localhost:5173**
+
+### Build for Production
+
+```bash
+npm run build
+npm run preview
+```
+
+## 📋 Features
+
+✅ Authentication (Login/Register with role selection)  
+✅ Social Feed (Posts, likes, comments)  
+✅ Job Marketplace (Post & apply for jobs)  
+✅ Direct Messaging (One-to-one chat)  
+✅ Notifications (Real-time alerts)  
+✅ User Profiles (View & edit)  
+
+## 🔐 Demo Credentials
+
+- **Student**: student@university.com / password
+- **Alumni**: alumni@university.com / password
+- **Admin**: admin@university.com / password
+
+## 📁 Project Structure
+
+```
+src/
+├── components/    # React components (Layout, Route guards)
+├── context/       # Authentication context
+├── config/        # API configuration
+├── pages/         # Page components
+├── App.jsx        # Main routing
+└── main.jsx       # Entry point
+```
+
+## 🔗 API Configuration
+
+Backend services must run on:
+- User Service: `http://localhost:4001`
+- Content Service: `http://localhost:4002`
+- Notification Service: `http://localhost:4003`
+- Chat Service: `http://localhost:4004`
+
+Update endpoints in `src/config/api.js` if different.
+
+## 📖 Full Setup Guide
+
+See [FRONTEND_SETUP.md](./FRONTEND_SETUP.md) for detailed setup, troubleshooting, and deployment instructions.
