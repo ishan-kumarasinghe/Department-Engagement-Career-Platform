@@ -49,13 +49,15 @@ const authLimiter = rateLimit({
 // Setup proxy options
 const proxyOptions = {
   changeOrigin: true, // Needed for virtual hosted sites
-  // Optional: You can hook into proxy events here to log or modify requests/responses
-  // onProxyReq: (proxyReq, req, res) => {
-  //   // e.g. Extract token from cookie and attach to Authorization header for internal services
-  //   if (req.cookies && req.cookies.accessToken) {
-  //     proxyReq.setHeader('Authorization', `Bearer ${req.cookies.accessToken}`);
-  //   }
-  // }
+  // Hook into proxy events here to log or modify requests/responses
+  onProxyReq: (proxyReq, req, res) => {
+    // Extract token from cookie and attach to Authorization header for internal services
+    if (req.cookies && req.cookies.accessToken) {
+      proxyReq.setHeader('Authorization', `Bearer ${req.cookies.accessToken}`);
+    }
+    // Also, if you need to forward the refresh token cookie specifically or all cookies:
+    // This is optional if your services aren't directly checking the auth cookie (except for user-service /refresh & /logout)
+  }
 };
 
 // Route Requests to Microservices
@@ -71,7 +73,7 @@ app.get('/health', (req, res) => {
 });
 
 // Fallback Route
-app.use('*', (req, res) => {
+app.use((req, res) => {
   res.status(404).json({ error: 'Route not found on API Gateway' });
 });
 
