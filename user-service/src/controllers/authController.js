@@ -33,7 +33,7 @@ const generateTokens = async (userId) => {
 // @access  Public
 const register = async (req, res) => {
     try {
-        const { email, password, name, role } = req.body;
+        const { email, password, fullName, role } = req.body;
 
         // Validate request
         if (!email || !password) {
@@ -54,7 +54,7 @@ const register = async (req, res) => {
         const user = await User.create({
             email,
             passwordHash,
-            name,
+            fullName,
             role: role && ['student', 'alumni', 'admin'].includes(role) ? role : 'student'
         });
 
@@ -76,10 +76,15 @@ const register = async (req, res) => {
             res.cookie('refreshToken', refreshToken, cookieOptions);
 
             res.status(201).json({
-                _id: user.id,
-                email: user.email,
-                name: user.name,
-                role: user.role
+                data: {
+                    token: accessToken,
+                    user: {
+                        _id: user.id,
+                        email: user.email,
+                        fullName: user.fullName,
+                        role: user.role
+                    }
+                }
             });
         } else {
             res.status(400).json({ message: 'Invalid user data' });
@@ -125,10 +130,17 @@ const login = async (req, res) => {
             res.cookie('refreshToken', refreshToken, cookieOptions);
 
             res.json({
-                _id: user.id,
-                email: user.email,
-                name: user.name,
-                role: user.role
+                data: {
+                    token: accessToken,
+                    user: {
+                        _id: user.id,
+                        email: user.email,
+                        fullName: user.fullName,
+                        role: user.role,
+                        bio: user.bio,
+                        location: user.location
+                    }
+                }
             });
         } else {
             res.status(401).json({ message: 'Invalid email or password' });

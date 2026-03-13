@@ -23,13 +23,19 @@ const getProfile = async (req, res) => {
 // @access  Private
 const updateProfile = async (req, res) => {
     try {
-        const user = await User.findById(req.user._id);
+        const user = await User.findById(req.params.id || req.user._id);
 
         if (user) {
+            // Check authorization to update (must be the same user or admin)
+            if (user._id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+                return res.status(403).json({ message: 'Not authorized to update this profile' });
+            }
+
             // Update allowed fields
-            user.name = req.body.name || user.name;
+            user.fullName = req.body.fullName || user.fullName;
             user.headline = req.body.headline || user.headline;
-            user.about = req.body.about || user.about;
+            user.bio = req.body.bio || user.bio;
+            user.location = req.body.location || user.location;
             user.profilePicUrl = req.body.profilePicUrl || user.profilePicUrl;
             user.coverPicUrl = req.body.coverPicUrl || user.coverPicUrl;
             user.batchYear = req.body.batchYear || user.batchYear;
@@ -54,11 +60,12 @@ const updateProfile = async (req, res) => {
 
             res.json({
                 _id: updatedUser._id,
-                name: updatedUser.name,
+                fullName: updatedUser.fullName,
                 email: updatedUser.email,
                 role: updatedUser.role,
                 headline: updatedUser.headline,
-                // send other necessary fields..
+                bio: updatedUser.bio,
+                location: updatedUser.location
             });
         } else {
             res.status(404).json({ message: 'User not found' });

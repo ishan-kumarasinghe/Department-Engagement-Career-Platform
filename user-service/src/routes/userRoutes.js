@@ -5,14 +5,14 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 
 // Public or basic authenticated routes
 router.route('/profile')
-    .get(protect, getProfile)
-    .put(protect, updateProfile);
+    .get(protect, getProfile);
 
 router.route('/')
     .get(protect, getUsers);
 
-// Admin only routes
+// Admin / specific user routes
 router.route('/:id')
+    .put(protect, updateProfile)
     .delete(protect, authorize('admin'), deleteUser);
 
 module.exports = router;
