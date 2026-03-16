@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, ChevronRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { userApi } from '../config/api';
+import { authApi } from '../config/api';
 import depLogo from '../assets/Dep_logo.png';
 import careerImage from '../assets/Career.png';
 
@@ -38,40 +38,20 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
 
-    // Mock authentication for demo purposes
-    const mockUsers = {
-      'student@university.com': { id: '1', fullName: 'John Doe', email: 'student@university.com', role: 'student' },
-      'alumni@university.com': { id: '2', fullName: 'Jane Smith', email: 'alumni@university.com', role: 'alumni' },
-      'admin@university.com': { id: '3', fullName: 'Admin User', email: 'admin@university.com', role: 'admin' },
-    };
-
-    const mockPassword = 'password';
-
-    // Check if credentials match demo accounts
-    if (mockUsers[formData.email] && formData.password === mockPassword) {
-      const user = mockUsers[formData.email];
-      const mockToken = `mock-jwt-token-${user.id}-${Date.now()}`;
-      
-      login(user, mockToken);
-      navigate('/');
-      setIsLoading(false);
-      return;
-    }
-
-    // If not demo credentials, try real API call
     try {
-      const response = await userApi.post('/api/auth/login', {
+      const response = await authApi.post('/login', {
         email: formData.email,
         password: formData.password,
       });
 
-      const { data } = response.data;
-      if (data.token && data.user) {
-        login(data.user, data.token);
+      // Based on typical express JSON responses
+      const { user, token } = response.data.data;
+      if (token && user) {
+        login(user, token);
         navigate('/');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      setError(err.response?.data?.message || err.response?.data?.error || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -88,41 +68,29 @@ export default function LoginPage() {
 
     setIsLoading(true);
 
-    // Mock registration for demo purposes
-    const mockToken = `mock-jwt-token-new-${Date.now()}`;
-    const newUser = {
-      id: Date.now().toString(),
-      fullName: formData.fullName,
-      email: formData.email,
-      role: selectedRole,
-    };
-
-    login(newUser, mockToken);
-    navigate('/');
-    setIsLoading(false);
-    return;
-
-    // Original API call (commented out for demo)
-    /*
     try {
-      const response = await userApi.post('/api/auth/register', {
-        fullName: formData.fullName,
+      const response = await authApi.post('/register', {
+        username: formData.fullName.split(' ').join('').toLowerCase() + Math.floor(Math.random() * 100), // Generate a temp username 
+        name: formData.fullName,
         email: formData.email,
         password: formData.password,
         role: selectedRole,
       });
 
-      const { data } = response.data;
-      if (data.token && data.user) {
-        login(data.user, data.token);
+      const { user, token } = response.data.data;
+      if (token && user) {
+        login(user, token);
         navigate('/');
+      } else {
+        // Fallback if the backend doesn't return a token on register, force them to login
+        setIsLogin(true);
+        setError('Registration successful! Please sign in.');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      setError(err.response?.data?.message || err.response?.data?.error || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
-    */
   };
 
   return (
@@ -312,15 +280,8 @@ export default function LoginPage() {
                     {isLogin ? 'Sign Up' : 'Sign In'}
                   </button>
                 </p>
-              </div>
             </div>
-
-            {/* Demo Credentials */}
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-xs font-semibold text-blue-900 mb-2">Demo Credentials:</p>
-              <p className="text-xs text-blue-800 mb-1">Student: student@university.com / password</p>
-              <p className="text-xs text-blue-800 mb-1">Alumni: alumni@university.com / password</p>
-              <p className="text-xs text-blue-800">Admin: admin@university.com / password</p>
+            {/* End Form Container */}
             </div>
           </div>
         </div>

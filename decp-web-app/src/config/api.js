@@ -2,10 +2,11 @@ import axios from 'axios';
 
 // API endpoints - Adjust based on your deployment
 const API_ENDPOINTS = {
-  USER_SERVICE: 'http://localhost:4001',
-  CONTENT_SERVICE: 'http://localhost:4002',
-  NOTIFICATION_SERVICE: 'http://localhost:4003',
-  CHAT_SERVICE: 'http://localhost:4004',
+  AUTH_SERVICE: 'http://localhost:3000/api/auth',
+  USER_SERVICE: 'http://localhost:3000/api/users',
+  CONTENT_SERVICE: 'http://localhost:3000/api/content',
+  NOTIFICATION_SERVICE: 'http://localhost:3000/api/notifications',
+  CHAT_SERVICE: 'http://localhost:3000/api/chat',
 };
 
 // Create axios instances with auth token
@@ -45,6 +46,7 @@ const createApiInstance = (baseURL) => {
   return instance;
 };
 
+export const authApi = createApiInstance(API_ENDPOINTS.AUTH_SERVICE);
 export const userApi = createApiInstance(API_ENDPOINTS.USER_SERVICE);
 export const contentApi = createApiInstance(API_ENDPOINTS.CONTENT_SERVICE);
 export const notificationApi = createApiInstance(API_ENDPOINTS.NOTIFICATION_SERVICE);
