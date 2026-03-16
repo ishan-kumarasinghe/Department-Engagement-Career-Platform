@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { contentApi } from '../config/api';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, Briefcase, Clock, MapPin, Users, X } from 'lucide-react';
 
 export default function JobsPage() {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [showCreateJob, setShowCreateJob] = useState(false);
+  const [showApplyJob, setShowApplyJob] = useState(false);
+  const [showApplicants, setShowApplicants] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [jobApplicants, setJobApplicants] = useState([]);
   const [appliedJobs, setAppliedJobs] = useState(new Set());
   const [filter, setFilter] = useState('all');
   const [jobForm, setJobForm] = useState({
@@ -17,9 +24,17 @@ export default function JobsPage() {
     type: 'internship',
     deadline: '',
   });
+  const [applicationForm, setApplicationForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    resumeUrl: '',
+    coverLetter: '',
+  });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isJobsLoading, setIsJobsLoading] = useState(true);
+  const [isApplicantsLoading, setIsApplicantsLoading] = useState(false);
 
   useEffect(() => {
     const loadJobs = async () => {
@@ -39,7 +54,19 @@ export default function JobsPage() {
     loadJobs();
   }, []);
 
+  useEffect(() => {
+    setShowCreateJob(location.pathname === '/create-job');
+  }, [location.pathname]);
+
   const isAlumniOrAdmin = user?.role === 'alumni' || user?.role === 'admin';
+
+  useEffect(() => {
+    setApplicationForm((currentForm) => ({
+      ...currentForm,
+      fullName: user?.fullName || '',
+      email: user?.email || '',
+    }));
+  }, [user]);
 
   const handleCreateJob = async (e) => {
     e.preventDefault();
@@ -72,6 +99,7 @@ export default function JobsPage() {
         deadline: '',
       });
       setShowCreateJob(false);
+      navigate('/jobs');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create job posting');
     } finally {
@@ -79,13 +107,28 @@ export default function JobsPage() {
     }
   };
 
-  const handleApplyJob = async (jobId) => {
+  const handleApplyJob = async (e) => {
+    e.preventDefault();
+    if (!selectedJob) {
+      return;
+    }
+
     try {
-      await contentApi.post(`/api/jobs/${jobId}/apply`, {});
-      setAppliedJobs((currentAppliedJobs) => new Set(currentAppliedJobs).add(jobId));
+      await contentApi.post(`/api/jobs/${selectedJob._id}/apply`, {
+        resumeUrl: applicationForm.resumeUrl,
+        coverLetter: [
+          `Applicant: ${applicationForm.fullName}`,
+          applicationForm.email ? `Email: ${applicationForm.email}` : '',
+          applicationForm.phone ? `Phone: ${applicationForm.phone}` : '',
+          '',
+          applicationForm.coverLetter
+        ].filter(Boolean).join('\n')
+      });
+
+      setAppliedJobs((currentAppliedJobs) => new Set(currentAppliedJobs).add(selectedJob._id));
       setJobs((currentJobs) =>
         currentJobs.map((job) =>
-          job._id === jobId
+          job._id === selectedJob._id
             ? {
                 ...job,
                 applicationCount: (job.applicationCount || 0) + 1,
@@ -94,8 +137,54 @@ export default function JobsPage() {
             : job
         )
       );
+      setShowApplyJob(false);
+      setSelectedJob(null);
+      setApplicationForm({
+        fullName: user?.fullName || '',
+        email: user?.email || '',
+        phone: '',
+        resumeUrl: '',
+        coverLetter: '',
+      });
     } catch (err) {
+      if (err.response?.status === 409) {
+        setAppliedJobs((currentAppliedJobs) => new Set(currentAppliedJobs).add(selectedJob._id));
+        setShowApplyJob(false);
+        setError('You have already applied to this job');
+        return;
+      }
+
       setError(err.response?.data?.message || 'Failed to apply for job');
+    }
+  };
+
+  const openApplyModal = (job) => {
+    setError('');
+    setSelectedJob(job);
+    setApplicationForm((currentForm) => ({
+      ...currentForm,
+      fullName: user?.fullName || '',
+      email: user?.email || '',
+      phone: '',
+      resumeUrl: '',
+      coverLetter: '',
+    }));
+    setShowApplyJob(true);
+  };
+
+  const openApplicantsModal = async (job) => {
+    try {
+      setError('');
+      setSelectedJob(job);
+      setShowApplicants(true);
+      setIsApplicantsLoading(true);
+      const response = await contentApi.get(`/api/jobs/${job._id}/applications`);
+      setJobApplicants(response.data.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load applicants');
+      setShowApplicants(false);
+    } finally {
+      setIsApplicantsLoading(false);
     }
   };
 
@@ -149,7 +238,10 @@ export default function JobsPage() {
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900">Post a Job Opportunity</h2>
               <button
-                onClick={() => setShowCreateJob(false)}
+                onClick={() => {
+                  setShowCreateJob(false);
+                  navigate('/jobs');
+                }}
                 className="p-1 hover:bg-gray-100 rounded-lg"
               >
                 <X size={24} />
@@ -252,7 +344,10 @@ export default function JobsPage() {
               <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
                 <button
                   type="button"
-                  onClick={() => setShowCreateJob(false)}
+                  onClick={() => {
+                    setShowCreateJob(false);
+                    navigate('/jobs');
+                  }}
                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all"
                 >
                   Cancel
@@ -266,6 +361,202 @@ export default function JobsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showApplyJob && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Apply for Job</h2>
+                <p className="text-sm text-gray-600 mt-1">{selectedJob.title} at {selectedJob.company || selectedJob.companyName}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowApplyJob(false);
+                  setSelectedJob(null);
+                }}
+                className="p-1 hover:bg-gray-100 rounded-lg"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleApplyJob} className="p-6 space-y-4">
+              {error && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                  <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
+                  <p className="text-red-700 text-sm">{error}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={applicationForm.fullName}
+                    onChange={(e) => setApplicationForm({ ...applicationForm, fullName: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={applicationForm.email}
+                    onChange={(e) => setApplicationForm({ ...applicationForm, email: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    value={applicationForm.phone}
+                    onChange={(e) => setApplicationForm({ ...applicationForm, phone: e.target.value })}
+                    placeholder="Optional contact number"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    CV / Resume URL
+                  </label>
+                  <input
+                    type="url"
+                    value={applicationForm.resumeUrl}
+                    onChange={(e) => setApplicationForm({ ...applicationForm, resumeUrl: e.target.value })}
+                    placeholder="https://example.com/resume.pdf"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cover Letter
+                </label>
+                <textarea
+                  value={applicationForm.coverLetter}
+                  onChange={(e) => setApplicationForm({ ...applicationForm, coverLetter: e.target.value })}
+                  placeholder="Write a short introduction and why you are a good fit..."
+                  rows="6"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowApplyJob(false);
+                    setSelectedJob(null);
+                  }}
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Submit Application
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showApplicants && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Applicants</h2>
+                <p className="text-sm text-gray-600 mt-1">{selectedJob.title} at {selectedJob.company || selectedJob.companyName}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowApplicants(false);
+                  setSelectedJob(null);
+                  setJobApplicants([]);
+                }}
+                className="p-1 hover:bg-gray-100 rounded-lg"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {isApplicantsLoading && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-6 text-gray-600">
+                  Loading applicants...
+                </div>
+              )}
+
+              {!isApplicantsLoading && jobApplicants.length === 0 && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-6 text-gray-600">
+                  No applications yet.
+                </div>
+              )}
+
+              {!isApplicantsLoading && jobApplicants.map((application) => (
+                <div key={application._id} className="rounded-lg border border-gray-200 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {application.applicantSnapshot?.name || application.applicant?.name || 'Applicant'}
+                      </h3>
+                      {application.applicantSnapshot?.headline && (
+                        <p className="text-sm text-gray-600">{application.applicantSnapshot.headline}</p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Applied on {new Date(application.appliedAt || application.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold capitalize text-blue-800">
+                      {application.status}
+                    </span>
+                  </div>
+
+                  {application.resumeUrl && (
+                    <div className="mt-4">
+                      <a
+                        href={application.resumeUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm font-medium text-blue-600 hover:underline"
+                      >
+                        View CV / Resume
+                      </a>
+                    </div>
+                  )}
+
+                  {application.coverLetter && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Application Details</p>
+                      <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap">
+                        {application.coverLetter}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -358,16 +649,22 @@ export default function JobsPage() {
               </div>
 
               <div className="flex flex-col gap-2 justify-start">
-                {appliedJobs.has(job._id) ? (
+                {job.isOwner || user?.role === 'admin' ? (
                   <button
-                    onClick={() => handleApplyJob(job._id)}
-                    className="px-6 py-2 bg-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-400 transition-all whitespace-nowrap"
+                    onClick={() => openApplicantsModal(job)}
+                    className="px-6 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-900 transition-all whitespace-nowrap"
+                  >
+                    View Applicants
+                  </button>
+                ) : appliedJobs.has(job._id) ? (
+                  <button
+                    className="px-6 py-2 bg-gray-300 text-gray-700 font-medium rounded-lg whitespace-nowrap"
                   >
                     Applied
                   </button>
                 ) : (
                   <button
-                    onClick={() => handleApplyJob(job._id)}
+                    onClick={() => openApplyModal(job)}
                     disabled={user?.role === 'admin' || user?.role === 'alumni'}
                     className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
                   >
