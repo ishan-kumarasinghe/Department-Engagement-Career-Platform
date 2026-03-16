@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { chatApi, contentApi, notificationApi } from '../config/api';
 import {
   Home,
   Briefcase,
@@ -15,20 +16,142 @@ import {
 import depLogo from '../assets/Dep_logo.png';
 
 export default function MainLayout({ children }) {
+  const ACTIVITY_STORAGE_KEY = 'decp_last_seen_activity';
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [activityFlags, setActivityFlags] = useState({
+    feed: false,
+    jobs: false,
+    messages: false,
+    notifications: false,
+  });
+  const [latestActivity, setLatestActivity] = useState({
+    feed: null,
+    jobs: null,
+    messages: null,
+    notifications: null,
+  });
 
   const menuItems = [
-    { icon: Home, label: 'Feed', path: '/' },
-    { icon: Briefcase, label: 'Jobs', path: '/jobs' },
-    { icon: MessageCircle, label: 'Messages', path: '/messages' },
-    { icon: Bell, label: 'Notifications', path: '/notifications' },
+    { icon: Home, label: 'Feed', path: '/', key: 'feed' },
+    { icon: Briefcase, label: 'Jobs', path: '/jobs', key: 'jobs' },
+    { icon: MessageCircle, label: 'Messages', path: '/messages', key: 'messages' },
+    { icon: Bell, label: 'Notifications', path: '/notifications', key: 'notifications' },
   ];
 
   const isAlumniOrAdmin = user?.role === 'alumni' || user?.role === 'admin';
+
+  const readStoredActivity = () => {
+    try {
+      return JSON.parse(localStorage.getItem(ACTIVITY_STORAGE_KEY) || '{}');
+    } catch (error) {
+      console.error('Failed to parse last seen activity:', error);
+      return {};
+    }
+  };
+
+  const writeStoredActivity = (value) => {
+    localStorage.setItem(ACTIVITY_STORAGE_KEY, JSON.stringify(value));
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const updateActivityFlags = async () => {
+      try {
+        const [feedResponse, jobsResponse, conversationsResponse, notificationsResponse] =
+          await Promise.all([
+            contentApi.get('/api/posts'),
+            contentApi.get('/api/jobs'),
+            chatApi.get('/api/conversations'),
+            notificationApi.get('/api/notifications', {
+              params: { limit: 10 },
+            }),
+          ]);
+
+        const nextLatestActivity = {
+          feed: feedResponse.data.data?.items?.[0]?.createdAt || null,
+          jobs: jobsResponse.data.data?.items?.[0]?.createdAt || null,
+          messages: conversationsResponse.data.data?.[0]?.lastMessageAt || null,
+          notifications:
+            notificationsResponse.data.data?.items?.[0]?.timestamp ||
+            notificationsResponse.data.data?.items?.[0]?.createdAt ||
+            null,
+        };
+
+        const storedActivity = readStoredActivity();
+        const seededActivity = { ...storedActivity };
+        let shouldSeedStorage = false;
+
+        Object.entries(nextLatestActivity).forEach(([key, value]) => {
+          if (!seededActivity[key] && value) {
+            seededActivity[key] = value;
+            shouldSeedStorage = true;
+          }
+        });
+
+        if (shouldSeedStorage) {
+          writeStoredActivity(seededActivity);
+        }
+
+        if (!isMounted) return;
+
+        setLatestActivity(nextLatestActivity);
+        setActivityFlags({
+          feed: Boolean(nextLatestActivity.feed && seededActivity.feed && nextLatestActivity.feed > seededActivity.feed),
+          jobs: Boolean(nextLatestActivity.jobs && seededActivity.jobs && nextLatestActivity.jobs > seededActivity.jobs),
+          messages: Boolean(
+            nextLatestActivity.messages &&
+              seededActivity.messages &&
+              nextLatestActivity.messages > seededActivity.messages
+          ),
+          notifications: Boolean(
+            nextLatestActivity.notifications &&
+              seededActivity.notifications &&
+              nextLatestActivity.notifications > seededActivity.notifications
+          ),
+        });
+      } catch (error) {
+        console.error('Failed to refresh activity highlights:', error);
+      }
+    };
+
+    updateActivityFlags();
+    const intervalId = setInterval(updateActivityFlags, 30000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    const currentSectionKey =
+      location.pathname === '/' || location.pathname === '/create-post'
+        ? 'feed'
+        : location.pathname === '/jobs' || location.pathname === '/create-job'
+          ? 'jobs'
+          : location.pathname === '/messages'
+            ? 'messages'
+            : location.pathname === '/notifications'
+              ? 'notifications'
+              : null;
+
+    if (!currentSectionKey || !latestActivity[currentSectionKey]) return;
+
+    const storedActivity = readStoredActivity();
+    if (storedActivity[currentSectionKey] === latestActivity[currentSectionKey]) {
+      setActivityFlags((currentFlags) => ({ ...currentFlags, [currentSectionKey]: false }));
+      return;
+    }
+
+    storedActivity[currentSectionKey] = latestActivity[currentSectionKey];
+    writeStoredActivity(storedActivity);
+    setActivityFlags((currentFlags) => ({ ...currentFlags, [currentSectionKey]: false }));
+  }, [location.pathname, latestActivity]);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -46,7 +169,7 @@ export default function MainLayout({ children }) {
        
 
         <nav className="flex-1 p-4 space-y-2">
-          {menuItems.map(({ icon: Icon, label, path }) => {
+          {menuItems.map(({ icon: Icon, label, path, key }) => {
             const isActive = location.pathname === path;
             return (
               <button
@@ -58,8 +181,22 @@ export default function MainLayout({ children }) {
                     : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                <Icon size={24} className="flex-shrink-0" />
-                {sidebarOpen && <span className="font-medium">{label}</span>}
+                <div className="relative flex-shrink-0">
+                  <Icon size={24} />
+                  {activityFlags[key] && (
+                    <span className="absolute -right-1 -top-1 block h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
+                  )}
+                </div>
+                {sidebarOpen && (
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="font-medium">{label}</span>
+                    {activityFlags[key] && (
+                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-600">
+                        New
+                      </span>
+                    )}
+                  </div>
+                )}
               </button>
             );
           })}
