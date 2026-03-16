@@ -49,18 +49,31 @@ const authLimiter = rateLimit({
 // Setup proxy options
 const proxyOptions = {
   changeOrigin: true, // Needed for virtual hosted sites
-  // Optional: You can hook into proxy events here to log or modify requests/responses
-  // onProxyReq: (proxyReq, req, res) => {
-  //   // e.g. Extract token from cookie and attach to Authorization header for internal services
-  //   if (req.cookies && req.cookies.accessToken) {
-  //     proxyReq.setHeader('Authorization', `Bearer ${req.cookies.accessToken}`);
-  //   }
-  // }
+  // Hook into proxy events here to log or modify requests/responses
+  onProxyReq: (proxyReq, req, res) => {
+    // Extract token from cookie and attach to Authorization header for internal services
+    if (req.cookies && req.cookies.accessToken) {
+      proxyReq.setHeader('Authorization', `Bearer ${req.cookies.accessToken}`);
+    }
+    // Also, if you need to forward the refresh token cookie specifically or all cookies:
+    // This is optional if your services aren't directly checking the auth cookie (except for user-service /refresh & /logout)
+  }
 };
 
 // Route Requests to Microservices
-// WARNING: Do not append a trailing slash to the target URLs in .env, or the paths might duplicate.
-app.use('/api/users', createProxyMiddleware({ target: process.env.USER_SERVICE_URL, ...proxyOptions }));
+// Mount directly on '/' to prevent Express from stripping the base path completely.
+// We explicitly define custom filters for the proxy middleware
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/users')) {
+    return createProxyMiddleware({ 
+        target: process.env.USER_SERVICE_URL, 
+        ...proxyOptions,
+        pathRewrite: undefined // Prevent any rewrites, just pass it exactly as it came in
+    })(req, res, next);
+  }
+  next();
+});
+
 app.use('/api/content', createProxyMiddleware({ target: process.env.CONTENT_SERVICE_URL, ...proxyOptions }));
 app.use('/api/notifications', createProxyMiddleware({ target: process.env.NOTIFICATION_SERVICE_URL, ...proxyOptions }));
 app.use('/api/chat', createProxyMiddleware({ target: process.env.CHAT_SERVICE_URL, ...proxyOptions }));
@@ -71,7 +84,7 @@ app.get('/health', (req, res) => {
 });
 
 // Fallback Route
-app.use('*', (req, res) => {
+app.use((req, res) => {
   res.status(404).json({ error: 'Route not found on API Gateway' });
 });
 

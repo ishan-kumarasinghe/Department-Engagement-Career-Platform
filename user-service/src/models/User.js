@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema(
       enum: ["student", "alumni", "admin"],
       default: "student",
     },
-    name: {
+    fullName: {
       type: String,
       trim: true,
     },
@@ -29,7 +29,8 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
     headline: { type: String, trim: true },
-    about: { type: String, trim: true },
+    bio: { type: String, trim: true },
+    location: { type: String, trim: true },
     profilePicUrl: { type: String },
     coverPicUrl: { type: String },
     batchYear: { type: Number },
@@ -46,9 +47,9 @@ const userSchema = new mongoose.Schema(
 
 // Indexes for searching
 userSchema.index({
-  name: "text",
+  fullName: "text",
   headline: "text",
-  about: "text",
+  bio: "text",
   skills: "text",
 });
 
