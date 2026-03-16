@@ -335,3 +335,105 @@ Optional extras if time permits:
 - sample documents (JSON examples) for each collection
 - migration/seed scripts for test data (students/alumni/admin + demo posts/jobs)
 - endpoint list that maps directly to these schemas
+
+---
+
+## CI / CD And Deployment
+
+### CI
+
+This repository now includes a GitHub Actions workflow at:
+
+- [.github/workflows/ci.yml](/d:/528_project/Department-Engagement-Career-Platform/.github/workflows/ci.yml)
+
+What it does:
+
+- installs dependencies for the frontend and each backend service
+- builds the Vite frontend
+- runs `node --check` on all backend `.js` files in:
+  - `user-service`
+  - `content-service`
+  - `notification-service`
+  - `chat-service`
+
+This gives you a solid minimum CI gate for pushes and pull requests.
+
+### Easiest deployment shape
+
+For this project, the simplest deploy path is:
+
+- frontend:
+  - Vercel or Netlify
+- backend microservices:
+  - Render, Railway, or Fly.io
+- MongoDB:
+  - MongoDB Atlas
+- RabbitMQ:
+  - CloudAMQP or RabbitMQ on Render/Railway/Fly
+
+Recommended service mapping:
+
+- `user-service`
+- `content-service`
+- `notification-service`
+- `chat-service`
+- `decp-web-app`
+
+### Required environment variables
+
+Each backend service should have its own environment configuration.
+
+Common variables:
+
+- `PORT`
+- `MONGO_URI`
+- `RABBITMQ_URL`
+- `JWT_SECRET`
+- `CLIENT_URL`
+
+Additional variables:
+
+- `user-service`
+  - `JWT_EXPIRE`
+  - `JWT_REFRESH_EXPIRE_DAYS`
+
+Example:
+
+```env
+CLIENT_URL=https://your-frontend-domain.example
+JWT_SECRET=your-shared-secret
+RABBITMQ_URL=amqps://...
+MONGO_URI=mongodb+srv://...
+```
+
+### What to verify after deployment
+
+Health checks:
+
+- `GET /health` on:
+  - user service
+  - content service
+  - notification service
+  - chat service
+
+Frontend smoke test:
+
+1. Register or log in
+2. Load feed
+3. Create post
+4. Like and comment
+5. Create a job as alumni/admin
+6. Apply to a job as student
+7. Open notifications
+8. Open messages and send a chat
+
+### Important production note
+
+Right now profile images and post images can be stored as base64 data URLs for demo convenience.
+That is fine for local/demo use, but for production deployment you should move media uploads to object storage such as:
+
+- Cloudinary
+- Firebase Storage
+- AWS S3
+
+Then store only the returned media URL in MongoDB and never place large base64 values inside JWTs.
