@@ -7,12 +7,16 @@ const { connectRabbitMQ } = require('./rabbitmq/connection');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
+const corsOptions = {
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  credentials: true,
+};
 
 // Middleware
 app.use(helmet());
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Routes
 app.use('/api/posts', require('./routes/postRoutes'));

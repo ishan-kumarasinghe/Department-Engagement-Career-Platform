@@ -252,8 +252,16 @@ export default function MainLayout({ children }) {
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 transition-all"
               >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
-                  {user?.fullName?.charAt(0) || 'U'}
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
+                  {user?.profilePicUrl ? (
+                    <img
+                      src={user.profilePicUrl}
+                      alt={user?.fullName || 'User'}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    user?.fullName?.charAt(0) || 'U'
+                  )}
                 </div>
                 <div className="hidden sm:block">
                   <p className="text-sm font-semibold text-gray-900">{user?.fullName}</p>

@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { getProfile, updateProfile, getUsers, deleteUser } = require('../controllers/userController');
+const { getProfile, updateProfile, getUsers, deleteUser, deleteOwnAccount } = require('../controllers/userController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 // Public or basic authenticated routes
 router.route('/profile')
-    .get(protect, getProfile);
+    .get(protect, getProfile)
+    .put(protect, updateProfile)
+    .delete(protect, deleteOwnAccount);
 
 router.route('/')
     .get(protect, getUsers);

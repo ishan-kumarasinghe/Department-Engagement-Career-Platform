@@ -193,8 +193,16 @@ export default function HomePage() {
     <div className="max-w-2xl mx-auto p-4 sm:p-6">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-            {user?.fullName?.charAt(0) || 'U'}
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 overflow-hidden">
+            {user?.profilePicUrl ? (
+              <img
+                src={user.profilePicUrl}
+                alt={user?.fullName || 'User'}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              user?.fullName?.charAt(0) || 'U'
+            )}
           </div>
 
           <div className="flex-1">
@@ -321,8 +329,16 @@ export default function HomePage() {
             <div className="p-4 sm:p-6 border-b border-gray-100">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-                    {(post.authorSnapshot?.name || 'U').charAt(0)}
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 overflow-hidden">
+                    {post.authorSnapshot?.profilePicUrl ? (
+                      <img
+                        src={post.authorSnapshot.profilePicUrl}
+                        alt={post.authorSnapshot?.name || 'User'}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      (post.authorSnapshot?.name || 'U').charAt(0)
+                    )}
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900">{post.authorSnapshot?.name}</p>
@@ -426,7 +442,17 @@ export default function HomePage() {
                 <div className="space-y-3 mb-4">
                   {(post.comments || []).map((comment, idx) => (
                     <div key={comment._id || idx} className="flex gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-300 flex-shrink-0" />
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0 overflow-hidden flex items-center justify-center text-white text-xs font-semibold">
+                        {comment.authorSnapshot?.profilePicUrl ? (
+                          <img
+                            src={comment.authorSnapshot.profilePicUrl}
+                            alt={comment.authorSnapshot?.name || 'User'}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          (comment.authorSnapshot?.name || 'U').charAt(0)
+                        )}
+                      </div>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-900">
                           {comment.authorSnapshot?.name || 'User'}
@@ -438,8 +464,16 @@ export default function HomePage() {
                 </div>
 
                 <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white font-semibold text-xs">
-                    {user?.fullName?.charAt(0) || 'U'}
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white font-semibold text-xs overflow-hidden">
+                    {user?.profilePicUrl ? (
+                      <img
+                        src={user.profilePicUrl}
+                        alt={user?.fullName || 'User'}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      user?.fullName?.charAt(0) || 'U'
+                    )}
                   </div>
                   <div className="flex-1 flex gap-2">
                     <input

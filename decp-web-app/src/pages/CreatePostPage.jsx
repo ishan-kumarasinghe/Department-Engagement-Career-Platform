@@ -80,8 +80,16 @@ export default function CreatePostPage() {
           )}
 
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-              {user?.fullName?.charAt(0)}
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 overflow-hidden">
+              {user?.profilePicUrl ? (
+                <img
+                  src={user.profilePicUrl}
+                  alt={user?.fullName || 'User'}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                user?.fullName?.charAt(0)
+              )}
             </div>
             <div>
               <p className="font-semibold text-gray-900">{user?.fullName}</p>

@@ -1,5 +1,23 @@
 const User = require('../models/User');
 
+const buildUserResponse = (user) => ({
+    _id: user._id,
+    fullName: user.fullName,
+    email: user.email,
+    role: user.role,
+    headline: user.headline,
+    bio: user.bio,
+    location: user.location,
+    profilePicUrl: user.profilePicUrl,
+    coverPicUrl: user.coverPicUrl,
+    batchYear: user.batchYear,
+    graduationYear: user.graduationYear,
+    skills: user.skills || [],
+    links: user.links || [],
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+});
+
 // @desc    Get user profile
 // @route   GET /api/users/profile
 // @access  Private
@@ -8,7 +26,7 @@ const getProfile = async (req, res) => {
         const user = await User.findById(req.user._id).select('-passwordHash -__v');
 
         if (user) {
-            res.json(user);
+            res.json(buildUserResponse(user));
         } else {
             res.status(404).json({ message: 'User not found' });
         }
@@ -32,20 +50,20 @@ const updateProfile = async (req, res) => {
             }
 
             // Update allowed fields
-            user.fullName = req.body.fullName || user.fullName;
-            user.headline = req.body.headline || user.headline;
-            user.bio = req.body.bio || user.bio;
-            user.location = req.body.location || user.location;
-            user.profilePicUrl = req.body.profilePicUrl || user.profilePicUrl;
-            user.coverPicUrl = req.body.coverPicUrl || user.coverPicUrl;
-            user.batchYear = req.body.batchYear || user.batchYear;
-            user.graduationYear = req.body.graduationYear || user.graduationYear;
+            user.fullName = req.body.fullName ?? user.fullName;
+            user.headline = req.body.headline ?? user.headline;
+            user.bio = req.body.bio ?? user.bio;
+            user.location = req.body.location ?? user.location;
+            user.profilePicUrl = req.body.profilePicUrl ?? user.profilePicUrl;
+            user.coverPicUrl = req.body.coverPicUrl ?? user.coverPicUrl;
+            user.batchYear = req.body.batchYear ?? user.batchYear;
+            user.graduationYear = req.body.graduationYear ?? user.graduationYear;
 
-            if (req.body.skills) {
+            if (req.body.skills !== undefined) {
                 user.skills = Array.isArray(req.body.skills) ? req.body.skills : [req.body.skills];
             }
 
-            if (req.body.links) {
+            if (req.body.links !== undefined) {
                 user.links = Array.isArray(req.body.links) ? req.body.links : [req.body.links];
             }
 
@@ -58,15 +76,7 @@ const updateProfile = async (req, res) => {
 
             const updatedUser = await user.save();
 
-            res.json({
-                _id: updatedUser._id,
-                fullName: updatedUser.fullName,
-                email: updatedUser.email,
-                role: updatedUser.role,
-                headline: updatedUser.headline,
-                bio: updatedUser.bio,
-                location: updatedUser.location
-            });
+            res.json(buildUserResponse(updatedUser));
         } else {
             res.status(404).json({ message: 'User not found' });
         }
@@ -127,9 +137,29 @@ const deleteUser = async (req, res) => {
     }
 };
 
+// @desc    Delete own account
+// @route   DELETE /api/users/profile
+// @access  Private
+const deleteOwnAccount = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        await User.deleteOne({ _id: user._id });
+        res.json({ message: 'Account deleted successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
 module.exports = {
     getProfile,
     updateProfile,
     getUsers,
-    deleteUser
+    deleteUser,
+    deleteOwnAccount
 };

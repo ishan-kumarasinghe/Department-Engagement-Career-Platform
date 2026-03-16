@@ -4,16 +4,30 @@ const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
 const crypto = require('crypto');
 
+const getSafeProfilePicClaim = (profilePicUrl) => {
+    if (!profilePicUrl) {
+        return undefined;
+    }
+
+    if (profilePicUrl.startsWith('data:') || profilePicUrl.length > 512) {
+        return undefined;
+    }
+
+    return profilePicUrl;
+};
+
+const buildAccessTokenPayload = (user) => ({
+    userId: user._id,
+    role: user.role,
+    fullName: user.fullName,
+    headline: user.headline,
+    profilePicUrl: getSafeProfilePicClaim(user.profilePicUrl),
+});
+
 // Helper to generate access and refresh tokens
 const generateTokens = async (user) => {
     const accessToken = jwt.sign(
-        {
-            userId: user._id,
-            role: user.role,
-            fullName: user.fullName,
-            headline: user.headline,
-            profilePicUrl: user.profilePicUrl
-        },
+        buildAccessTokenPayload(user),
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRE || '15m' }
     );
@@ -88,7 +102,16 @@ const register = async (req, res) => {
                         _id: user.id,
                         email: user.email,
                         fullName: user.fullName,
-                        role: user.role
+                        role: user.role,
+                        headline: user.headline,
+                        bio: user.bio,
+                        location: user.location,
+                        profilePicUrl: user.profilePicUrl,
+                        coverPicUrl: user.coverPicUrl,
+                        batchYear: user.batchYear,
+                        graduationYear: user.graduationYear,
+                        skills: user.skills || [],
+                        links: user.links || []
                     }
                 }
             });
@@ -143,8 +166,15 @@ const login = async (req, res) => {
                         email: user.email,
                         fullName: user.fullName,
                         role: user.role,
+                        headline: user.headline,
                         bio: user.bio,
-                        location: user.location
+                        location: user.location,
+                        profilePicUrl: user.profilePicUrl,
+                        coverPicUrl: user.coverPicUrl,
+                        batchYear: user.batchYear,
+                        graduationYear: user.graduationYear,
+                        skills: user.skills || [],
+                        links: user.links || []
                     }
                 }
             });
@@ -175,9 +205,14 @@ const refresh = async (req, res) => {
             return res.status(401).json({ message: 'Invalid or expired refresh token' });
         }
 
+        const user = await User.findById(existingRefreshToken.userId);
+        if (!user) {
+            return res.status(401).json({ message: 'User not found' });
+        }
+
         // Generate new access token
         const accessToken = jwt.sign(
-            { userId: existingRefreshToken.userId },
+            buildAccessTokenPayload(user),
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRE || '15m' }
         );
