@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { contentApi } from '../config/api';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, Briefcase, Clock, MapPin, Users, X } from 'lucide-react';
+import { AlertCircle, Briefcase, Clock, MapPin, MoreHorizontal, Users, X } from 'lucide-react';
 
 export default function JobsPage() {
   const { user } = useAuth();
@@ -35,6 +35,8 @@ export default function JobsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isJobsLoading, setIsJobsLoading] = useState(true);
   const [isApplicantsLoading, setIsApplicantsLoading] = useState(false);
+  const [editingJobId, setEditingJobId] = useState(null);
+  const [openJobMenuId, setOpenJobMenuId] = useState(null);
 
   useEffect(() => {
     const loadJobs = async () => {
@@ -93,7 +95,7 @@ export default function JobsPage() {
 
     setIsLoading(true);
     try {
-      const response = await contentApi.post('/api/jobs', {
+      const payload = {
         title: jobForm.title,
         companyName: jobForm.company,
         description: jobForm.description,
@@ -101,9 +103,16 @@ export default function JobsPage() {
         type: jobForm.type,
         mode: 'remote',
         deadline: `${jobForm.deadline}T23:59:59.000Z`,
-      });
+      };
 
-      setJobs((currentJobs) => [response.data.data, ...currentJobs]);
+      if (editingJobId) {
+        await contentApi.put(`/api/jobs/${editingJobId}`, payload);
+      } else {
+        await contentApi.post('/api/jobs', payload);
+      }
+
+      const refreshedJobs = await contentApi.get('/api/jobs');
+      setJobs(refreshedJobs.data.data.items || []);
       setJobForm({
         title: '',
         company: '',
@@ -112,6 +121,7 @@ export default function JobsPage() {
         type: 'internship',
         deadline: '',
       });
+      setEditingJobId(null);
       setShowCreateJob(false);
       navigate('/jobs');
     } catch (err) {
@@ -202,6 +212,34 @@ export default function JobsPage() {
     }
   };
 
+  const startEditJob = (job) => {
+    setEditingJobId(job._id);
+    setJobForm({
+      title: job.title || '',
+      company: job.company || job.companyName || '',
+      description: job.description || '',
+      location: job.location || '',
+      type: job.type || 'internship',
+      deadline: job.deadline ? new Date(job.deadline).toISOString().slice(0, 10) : '',
+    });
+    setError('');
+    setShowCreateJob(true);
+    navigate('/create-job');
+  };
+
+  const handleDeleteJob = async (jobId) => {
+    if (!window.confirm('Delete this job posting?')) {
+      return;
+    }
+
+    try {
+      await contentApi.delete(`/api/jobs/${jobId}`);
+      setJobs((currentJobs) => currentJobs.filter((job) => job._id !== jobId));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete job');
+    }
+  };
+
   const formatTime = (date) => {
     const now = new Date();
     const diff = now - date;
@@ -254,6 +292,7 @@ export default function JobsPage() {
               <button
                 onClick={() => {
                   setShowCreateJob(false);
+                  setEditingJobId(null);
                   navigate('/jobs');
                 }}
                 className="p-1 hover:bg-gray-100 rounded-lg"
@@ -360,6 +399,7 @@ export default function JobsPage() {
                   type="button"
                   onClick={() => {
                     setShowCreateJob(false);
+                    setEditingJobId(null);
                     navigate('/jobs');
                   }}
                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all"
@@ -371,7 +411,7 @@ export default function JobsPage() {
                   disabled={isLoading}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
-                  {isLoading ? 'Posting...' : 'Post Job'}
+                  {isLoading ? (editingJobId ? 'Saving...' : 'Posting...') : (editingJobId ? 'Save Changes' : 'Post Job')}
                 </button>
               </div>
             </form>
@@ -664,12 +704,50 @@ export default function JobsPage() {
 
               <div className="flex flex-col gap-2 justify-start">
                 {job.isOwner || user?.role === 'admin' ? (
-                  <button
-                    onClick={() => openApplicantsModal(job)}
-                    className="px-6 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-900 transition-all whitespace-nowrap"
-                  >
-                    View Applicants
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() =>
+                        setOpenJobMenuId((currentMenuId) =>
+                          currentMenuId === job._id ? null : job._id
+                        )
+                      }
+                      className="self-end rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                    >
+                      <MoreHorizontal size={18} />
+                    </button>
+
+                    {openJobMenuId === job._id && (
+                      <div className="absolute right-0 top-full z-10 mt-2 w-40 rounded-lg border border-gray-200 bg-white py-2 shadow-lg">
+                        <button
+                          onClick={() => {
+                            openApplicantsModal(job);
+                            setOpenJobMenuId(null);
+                          }}
+                          className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          View Applicants
+                        </button>
+                        <button
+                          onClick={() => {
+                            startEditJob(job);
+                            setOpenJobMenuId(null);
+                          }}
+                          className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleDeleteJob(job._id);
+                            setOpenJobMenuId(null);
+                          }}
+                          className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ) : appliedJobs.has(job._id) ? (
                   <button
                     className="px-6 py-2 bg-gray-300 text-gray-700 font-medium rounded-lg whitespace-nowrap"

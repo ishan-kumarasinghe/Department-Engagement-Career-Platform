@@ -36,6 +36,7 @@ const mapPost = (post, comments, currentUserId, likedPostIds) => ({
   shareCount: post.shareCount,
   createdAt: post.createdAt,
   updatedAt: post.updatedAt,
+  isOwner: currentUserId ? post.authorId.toString() === currentUserId.toString() : false,
   likedByMe: likedPostIds.has(post._id.toString()),
   comments: (comments.get(post._id.toString()) || []).map(mapComment),
   author: {
@@ -46,6 +47,22 @@ const mapPost = (post, comments, currentUserId, likedPostIds) => ({
   images: post.media.filter((item) => item.type === 'image').map((item) => item.url),
   likes: post.likeCount
 });
+
+const getOwnedPost = async (postId, user) => {
+  const post = await Post.findById(postId);
+  if (!post) {
+    throw createHttpError(404, 'Post not found');
+  }
+
+  const isOwner = post.authorId.toString() === user.id.toString();
+  const isAdmin = user.role === 'admin';
+
+  if (!isOwner && !isAdmin) {
+    throw createHttpError(403, 'You do not have permission to modify this post');
+  }
+
+  return post;
+};
 
 const createPost = async (req, res) => {
   const text = requireNonEmptyString(req.body.text || req.body.content, 'text', 'Post content');
@@ -233,10 +250,52 @@ const addComment = async (req, res) => {
   return sendSuccess(res, 201, mapComment(comment), 'Comment added successfully');
 };
 
+const updatePost = async (req, res) => {
+  ensureObjectId(req.params.postId, 'postId');
+
+  const post = await getOwnedPost(req.params.postId, req.user);
+  const text = requireNonEmptyString(req.body.text || req.body.content, 'text', 'Post content');
+
+  post.text = text;
+  post.media = normalizeMedia(req.body.media || req.body.images, ['image', 'video', 'document']);
+  post.tags = normalizeStringArray(req.body.tags);
+  if (req.body.visibility && ['public', 'dept', 'connections'].includes(req.body.visibility)) {
+    post.visibility = req.body.visibility;
+  }
+
+  await post.save();
+
+  const comments = await Comment.find({ postId: post._id }).sort({ createdAt: 1 }).lean();
+  const commentsByPost = new Map([[post._id.toString(), comments]]);
+
+  return sendSuccess(
+    res,
+    200,
+    mapPost(post.toObject(), commentsByPost, req.user.id, new Set()),
+    'Post updated successfully'
+  );
+};
+
+const deletePost = async (req, res) => {
+  ensureObjectId(req.params.postId, 'postId');
+
+  const post = await getOwnedPost(req.params.postId, req.user);
+
+  await Promise.all([
+    Comment.deleteMany({ postId: post._id }),
+    Like.deleteMany({ postId: post._id }),
+    Post.deleteOne({ _id: post._id })
+  ]);
+
+  return sendSuccess(res, 200, null, 'Post deleted successfully');
+};
+
 module.exports = {
   addComment,
   createPost,
+  deletePost,
   getFeed,
   likePost,
+  updatePost,
   unlikePost
 };

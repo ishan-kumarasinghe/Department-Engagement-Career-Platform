@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { contentApi } from '../config/api';
-import { Heart, Image as ImageIcon, MessageCircle, Share2, Smile, X } from 'lucide-react';
+import { Heart, Image as ImageIcon, MessageCircle, MoreHorizontal, Share2, Smile, X } from 'lucide-react';
 
 export default function HomePage() {
   const emojiOptions = ['😀', '🎉', '🔥', '👏', '💼', '🚀', '❤️', '🙌'];
@@ -16,6 +16,8 @@ export default function HomePage() {
   const [feedError, setFeedError] = useState('');
   const [expandedPost, setExpandedPost] = useState(null);
   const [commentDrafts, setCommentDrafts] = useState({});
+  const [editingPostId, setEditingPostId] = useState(null);
+  const [openPostMenuId, setOpenPostMenuId] = useState(null);
 
   const loadFeed = async () => {
     try {
@@ -82,12 +84,19 @@ export default function HomePage() {
 
     setIsLoading(true);
     try {
-      await contentApi.post('/api/posts', {
+      const payload = {
         text: postContent,
         media: postImages.map((url) => ({ url, type: 'image' }))
-      });
+      };
+
+      if (editingPostId) {
+        await contentApi.put(`/api/posts/${editingPostId}`, payload);
+      } else {
+        await contentApi.post('/api/posts', payload);
+      }
 
       await loadFeed();
+      setEditingPostId(null);
       setPostContent('');
       setPostImages([]);
       setShowCreatePost(false);
@@ -96,6 +105,29 @@ export default function HomePage() {
       setFeedError(error.response?.data?.message || 'Failed to create post');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const startEditPost = (post) => {
+    setEditingPostId(post._id);
+    setPostContent(post.text || post.content || '');
+    setPostImages(post.images || []);
+    setShowCreatePost(true);
+    setShowEmojiPicker(false);
+    setFeedError('');
+  };
+
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm('Delete this post?')) {
+      return;
+    }
+
+    try {
+      await contentApi.delete(`/api/posts/${postId}`);
+      await loadFeed();
+    } catch (error) {
+      console.error('Failed to delete post:', error);
+      setFeedError(error.response?.data?.message || 'Failed to delete post');
     }
   };
 
@@ -248,8 +280,10 @@ export default function HomePage() {
                   <button
                     onClick={() => {
                       setShowCreatePost(false);
+                      setEditingPostId(null);
                       setPostContent('');
                       setPostImages([]);
+                      setShowEmojiPicker(false);
                     }}
                     className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all"
                   >
@@ -260,7 +294,7 @@ export default function HomePage() {
                     disabled={isLoading || !postContent.trim()}
                     className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
-                    {isLoading ? 'Posting...' : 'Post'}
+                    {isLoading ? (editingPostId ? 'Saving...' : 'Posting...') : (editingPostId ? 'Save Changes' : 'Post')}
                   </button>
                 </div>
               </div>
@@ -297,6 +331,43 @@ export default function HomePage() {
                     </p>
                   </div>
                 </div>
+                {post.isOwner && (
+                  <div className="relative">
+                    <button
+                      onClick={() =>
+                        setOpenPostMenuId((currentMenuId) =>
+                          currentMenuId === post._id ? null : post._id
+                        )
+                      }
+                      className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                    >
+                      <MoreHorizontal size={18} />
+                    </button>
+
+                    {openPostMenuId === post._id && (
+                      <div className="absolute right-0 top-full z-10 mt-2 w-32 rounded-lg border border-gray-200 bg-white py-2 shadow-lg">
+                        <button
+                          onClick={() => {
+                            startEditPost(post);
+                            setOpenPostMenuId(null);
+                          }}
+                          className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleDeletePost(post._id);
+                            setOpenPostMenuId(null);
+                          }}
+                          className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

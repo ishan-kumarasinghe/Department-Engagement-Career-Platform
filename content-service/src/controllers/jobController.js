@@ -39,6 +39,22 @@ const mapJob = (job, currentUserId) => ({
   applicants: job.applicationCount
 });
 
+const getOwnedJob = async (jobId, user) => {
+  const job = await Job.findById(jobId);
+  if (!job) {
+    throw createHttpError(404, 'Job not found');
+  }
+
+  const isOwner = job.postedById.toString() === user.id.toString();
+  const isAdmin = user.role === 'admin';
+
+  if (!isOwner && !isAdmin) {
+    throw createHttpError(403, 'You do not have permission to modify this job');
+  }
+
+  return job;
+};
+
 const mapApplication = (application) => ({
   _id: application._id,
   jobId: application.jobId,
@@ -215,6 +231,57 @@ const getMyApplications = async (req, res) => {
   );
 };
 
+const updateJob = async (req, res) => {
+  ensureObjectId(req.params.jobId, 'jobId');
+
+  const job = await getOwnedJob(req.params.jobId, req.user);
+  const title = requireNonEmptyString(req.body.title, 'title', 'Job title');
+  const companyName = requireNonEmptyString(
+    req.body.companyName || req.body.company,
+    'companyName',
+    'Company name'
+  );
+  const description = requireNonEmptyString(req.body.description, 'description', 'Job description');
+  const type = ['internship', 'fulltime', 'parttime', 'contract'].includes(req.body.type)
+    ? req.body.type
+    : null;
+  const mode = ['remote', 'onsite', 'hybrid'].includes(req.body.mode) ? req.body.mode : null;
+
+  if (!type || !mode) {
+    throw createHttpError(400, 'Validation error', [
+      { field: !type ? 'type' : 'mode', message: 'Invalid value' }
+    ]);
+  }
+
+  job.title = title;
+  job.companyName = companyName;
+  job.description = description;
+  job.type = type;
+  job.mode = mode;
+  job.location = typeof req.body.location === 'string' ? req.body.location.trim() : '';
+  job.requirements = normalizeStringArray(req.body.requirements);
+  job.deadline = requireFutureDate(req.body.deadline, 'deadline');
+  job.applyUrl = typeof req.body.applyUrl === 'string' ? req.body.applyUrl.trim() : '';
+  job.media = normalizeMedia(req.body.media, ['image']);
+
+  await job.save();
+
+  return sendSuccess(res, 200, mapJob(job, req.user.id), 'Job updated successfully');
+};
+
+const deleteJob = async (req, res) => {
+  ensureObjectId(req.params.jobId, 'jobId');
+
+  const job = await getOwnedJob(req.params.jobId, req.user);
+
+  await Promise.all([
+    JobApplication.deleteMany({ jobId: job._id }),
+    Job.deleteOne({ _id: job._id })
+  ]);
+
+  return sendSuccess(res, 200, null, 'Job deleted successfully');
+};
+
 const getJobApplications = async (req, res) => {
   ensureObjectId(req.params.jobId, 'jobId');
 
@@ -245,7 +312,10 @@ const getJobApplications = async (req, res) => {
 module.exports = {
   applyToJob,
   createJob,
+  deleteJob,
   getJobApplications,
   getMyApplications,
   listJobs
+  ,
+  updateJob
 };
