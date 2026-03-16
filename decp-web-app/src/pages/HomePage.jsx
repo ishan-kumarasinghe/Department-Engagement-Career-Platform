@@ -4,9 +4,11 @@ import { contentApi } from '../config/api';
 import { Heart, Image as ImageIcon, MessageCircle, Share2, Smile, X } from 'lucide-react';
 
 export default function HomePage() {
+  const emojiOptions = ['😀', '🎉', '🔥', '👏', '💼', '🚀', '❤️', '🙌'];
   const { user } = useAuth();
   const [posts, setPosts] = useState([]);
   const [showCreatePost, setShowCreatePost] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [postContent, setPostContent] = useState('');
   const [postImages, setPostImages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -32,6 +34,46 @@ export default function HomePage() {
   useEffect(() => {
     loadFeed();
   }, []);
+
+  const handleImageUpload = (event) => {
+    const files = Array.from(event.target.files || []);
+
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        setPostImages((currentImages) => [...currentImages, loadEvent.target.result]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    event.target.value = '';
+  };
+
+  const handleEmojiInsert = (emoji) => {
+    setPostContent((currentContent) => `${currentContent}${emoji}`);
+    setShowEmojiPicker(false);
+  };
+
+  const handleSharePost = async (post) => {
+    const shareText = post.content || post.text || '';
+    const shareUrl = `${window.location.origin}/?post=${post._id}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: post.authorSnapshot?.name ? `${post.authorSnapshot.name}'s post` : 'Shared post',
+          text: shareText,
+          url: shareUrl
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`.trim());
+      window.alert('Post link copied to clipboard');
+    } catch (error) {
+      console.error('Failed to share post:', error);
+    }
+  };
 
   const handleCreatePost = async () => {
     if (!postContent.trim()) {
@@ -164,14 +206,42 @@ export default function HomePage() {
                 )}
 
                 <div className="flex gap-3">
-                  <button className="flex items-center gap-2 text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg transition-all">
+                  <label className="flex items-center gap-2 text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg transition-all cursor-pointer">
                     <ImageIcon size={20} />
                     <span className="text-sm">Photo/Video</span>
-                  </button>
-                  <button className="flex items-center gap-2 text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg transition-all">
-                    <Smile size={20} />
-                    <span className="text-sm">Emoji</span>
-                  </button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowEmojiPicker((currentState) => !currentState)}
+                      className="flex items-center gap-2 text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg transition-all"
+                    >
+                      <Smile size={20} />
+                      <span className="text-sm">Emoji</span>
+                    </button>
+
+                    {showEmojiPicker && (
+                      <div className="absolute left-0 top-full z-10 mt-2 flex gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
+                        {emojiOptions.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleEmojiInsert(emoji)}
+                            className="text-xl transition-transform hover:scale-110"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex gap-3 justify-end">
@@ -271,7 +341,10 @@ export default function HomePage() {
                 <span className="hidden sm:inline">Comment</span>
               </button>
 
-              <button className="flex-1 flex items-center justify-center gap-2 text-gray-600 hover:bg-gray-100 py-2 rounded-lg transition-all">
+              <button
+                onClick={() => handleSharePost(post)}
+                className="flex-1 flex items-center justify-center gap-2 text-gray-600 hover:bg-gray-100 py-2 rounded-lg transition-all"
+              >
                 <Share2 size={20} />
                 <span className="hidden sm:inline">Share</span>
               </button>
