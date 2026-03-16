@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
+import { contentApi } from '../config/api';
 import { ArrowLeft, Image, Smile, Loader } from 'lucide-react';
 
 export default function CreatePostPage() {
@@ -10,6 +11,7 @@ export default function CreatePostPage() {
   const [content, setContent] = useState('');
   const [images, setImages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
@@ -26,13 +28,16 @@ export default function CreatePostPage() {
     if (!content.trim()) return;
 
     setIsLoading(true);
+    setError('');
     try {
-      // In production: const response = await contentApi.post('/api/posts', { content, images });
-      // For now, just navigate back with a message
-      console.log('Post created:', { content, images });
+      await contentApi.post('/api/posts', {
+        text: content,
+        media: images.map((url) => ({ url, type: 'image' })),
+      });
       navigate('/');
     } catch (error) {
       console.error('Error creating post:', error);
+      setError(error.response?.data?.message || 'Failed to create post');
     } finally {
       setIsLoading(false);
     }
@@ -51,6 +56,12 @@ export default function CreatePostPage() {
 
         <div className="bg-white rounded-lg shadow p-6">
           <h1 className="text-2xl font-bold mb-6 text-gray-900">Create a Post</h1>
+
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
           {/* User Info */}
           <div className="flex items-center gap-3 mb-6">

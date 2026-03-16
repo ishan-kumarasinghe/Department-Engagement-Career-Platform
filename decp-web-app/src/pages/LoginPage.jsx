@@ -70,8 +70,7 @@ export default function LoginPage() {
 
     try {
       const response = await authApi.post('/register', {
-        username: formData.fullName.split(' ').join('').toLowerCase() + Math.floor(Math.random() * 100), // Generate a temp username 
-        name: formData.fullName,
+        fullName: formData.fullName,
         email: formData.email,
         password: formData.password,
         role: selectedRole,

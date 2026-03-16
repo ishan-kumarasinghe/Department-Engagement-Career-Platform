@@ -1,56 +1,42 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { MapPin, Briefcase, DollarSign, Clock, Users, X, AlertCircle } from 'lucide-react';
+import { contentApi } from '../config/api';
+import { AlertCircle, Briefcase, Clock, MapPin, Users, X } from 'lucide-react';
 
 export default function JobsPage() {
   const { user } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [showCreateJob, setShowCreateJob] = useState(false);
   const [appliedJobs, setAppliedJobs] = useState(new Set());
-  const [filter, setFilter] = useState('all'); // all, applied, my-posts
+  const [filter, setFilter] = useState('all');
   const [jobForm, setJobForm] = useState({
     title: '',
     company: '',
     description: '',
     location: '',
-    type: 'internship', // internship, full-time, part-time
-    salary: '',
+    type: 'internship',
     deadline: '',
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isJobsLoading, setIsJobsLoading] = useState(true);
 
-  // Mock data
   useEffect(() => {
-    const mockJobs = [
-      {
-        id: '1',
-        title: 'Full-Stack Developer Internship',
-        company: 'Tech Corp',
-        description: 'Join our team to build scalable web applications using React and Node.js. You will work on real projects and learn from experienced mentors.',
-        location: 'New York, NY',
-        type: 'internship',
-        salary: '$20-25/hr',
-        deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        postedBy: { _id: 'alumni1', fullName: 'John Alumni', role: 'alumni' },
-        postedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-        applicants: 12,
-      },
-      {
-        id: '2',
-        title: 'Data Science Associate',
-        company: 'AI Innovations Ltd',
-        description: 'Help us build machine learning models. Experience with Python, TensorFlow required.',
-        location: 'San Francisco, CA',
-        type: 'full-time',
-        salary: '$80,000-120,000',
-        deadline: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
-        postedBy: { _id: 'admin1', fullName: 'Dr. Admin', role: 'admin' },
-        postedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-        applicants: 8,
-      },
-    ];
-    setJobs(mockJobs);
+    const loadJobs = async () => {
+      try {
+        setIsJobsLoading(true);
+        setError('');
+        const response = await contentApi.get('/api/jobs');
+        setJobs(response.data.data.items || []);
+      } catch (err) {
+        console.error('Failed to fetch jobs:', err);
+        setError(err.response?.data?.message || 'Failed to load jobs');
+      } finally {
+        setIsJobsLoading(false);
+      }
+    };
+
+    loadJobs();
   }, []);
 
   const isAlumniOrAdmin = user?.role === 'alumni' || user?.role === 'admin';
@@ -59,72 +45,86 @@ export default function JobsPage() {
     e.preventDefault();
     setError('');
 
-    if (!jobForm.title || !jobForm.company || !jobForm.description) {
+    if (!jobForm.title || !jobForm.company || !jobForm.description || !jobForm.deadline) {
       setError('Please fill in all required fields');
       return;
     }
 
     setIsLoading(true);
     try {
-      // In production, call contentApi.post('/api/jobs', {...})
-      const newJob = {
-        id: Date.now().toString(),
-        ...jobForm,
-        deadline: new Date(jobForm.deadline),
-        postedBy: user,
-        postedAt: new Date(),
-        applicants: 0,
-      };
+      const response = await contentApi.post('/api/jobs', {
+        title: jobForm.title,
+        companyName: jobForm.company,
+        description: jobForm.description,
+        location: jobForm.location,
+        type: jobForm.type,
+        mode: 'remote',
+        deadline: `${jobForm.deadline}T23:59:59.000Z`,
+      });
 
-      setJobs([newJob, ...jobs]);
+      setJobs((currentJobs) => [response.data.data, ...currentJobs]);
       setJobForm({
         title: '',
         company: '',
         description: '',
         location: '',
         type: 'internship',
-        salary: '',
         deadline: '',
       });
       setShowCreateJob(false);
     } catch (err) {
-      setError('Failed to create job posting');
+      setError(err.response?.data?.message || 'Failed to create job posting');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleApplyJob = (jobId) => {
-    const newApplied = new Set(appliedJobs);
-    if (newApplied.has(jobId)) {
-      newApplied.delete(jobId);
-    } else {
-      newApplied.add(jobId);
+  const handleApplyJob = async (jobId) => {
+    try {
+      await contentApi.post(`/api/jobs/${jobId}/apply`, {});
+      setAppliedJobs((currentAppliedJobs) => new Set(currentAppliedJobs).add(jobId));
+      setJobs((currentJobs) =>
+        currentJobs.map((job) =>
+          job._id === jobId
+            ? {
+                ...job,
+                applicationCount: (job.applicationCount || 0) + 1,
+                applicants: (job.applicants || 0) + 1,
+              }
+            : job
+        )
+      );
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to apply for job');
     }
-    setAppliedJobs(newApplied);
-
-    // In production, call contentApi.post(`/api/jobs/${jobId}/apply`)
   };
 
   const formatTime = (date) => {
     const now = new Date();
     const diff = now - date;
     const days = Math.floor(diff / 86400000);
-    
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
+
+    if (days === 0) {
+      return 'Today';
+    }
+    if (days === 1) {
+      return 'Yesterday';
+    }
     return `${days}d ago`;
   };
 
-  const filteredJobs = jobs.filter(job => {
-    if (filter === 'applied') return appliedJobs.has(job.id);
-    if (filter === 'my-posts') return job.postedBy._id === user?._id;
+  const filteredJobs = jobs.filter((job) => {
+    if (filter === 'applied') {
+      return appliedJobs.has(job._id);
+    }
+    if (filter === 'my-posts') {
+      return job.postedBy?._id === user?._id;
+    }
     return true;
   });
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6">
-      {/* Header and Filter */}
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
@@ -143,7 +143,6 @@ export default function JobsPage() {
         )}
       </div>
 
-      {/* Create Job Modal */}
       {showCreateJob && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -204,8 +203,9 @@ export default function JobsPage() {
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   >
                     <option value="internship">Internship</option>
-                    <option value="full-time">Full-Time</option>
-                    <option value="part-time">Part-Time</option>
+                    <option value="fulltime">Full-Time</option>
+                    <option value="parttime">Part-Time</option>
+                    <option value="contract">Contract</option>
                   </select>
                 </div>
 
@@ -222,22 +222,9 @@ export default function JobsPage() {
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Salary/Stipend
-                  </label>
-                  <input
-                    type="text"
-                    value={jobForm.salary}
-                    onChange={(e) => setJobForm({ ...jobForm, salary: e.target.value })}
-                    placeholder="e.g., $50,000 - $70,000"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Application Deadline
+                    Application Deadline *
                   </label>
                   <input
                     type="date"
@@ -283,7 +270,6 @@ export default function JobsPage() {
         </div>
       )}
 
-      {/* Filter Tabs */}
       <div className="mb-6 flex gap-3 border-b border-gray-200">
         <button
           onClick={() => setFilter('all')}
@@ -319,11 +305,16 @@ export default function JobsPage() {
         )}
       </div>
 
-      {/* Jobs List */}
       <div className="space-y-4">
-        {filteredJobs.map((job) => (
+        {isJobsLoading && (
+          <div className="bg-white border border-gray-200 rounded-lg p-6 text-gray-600">
+            Loading jobs...
+          </div>
+        )}
+
+        {!isJobsLoading && filteredJobs.map((job) => (
           <div
-            key={job.id}
+            key={job._id}
             className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 hover:shadow-md transition-all"
           >
             <div className="flex flex-col sm:flex-row justify-between gap-4">
@@ -336,7 +327,7 @@ export default function JobsPage() {
                     <h3 className="text-lg sm:text-xl font-bold text-gray-900">
                       {job.title}
                     </h3>
-                    <p className="text-gray-600 font-medium">{job.company}</p>
+                    <p className="text-gray-600 font-medium">{job.company || job.companyName}</p>
                   </div>
                 </div>
 
@@ -349,19 +340,13 @@ export default function JobsPage() {
                       {job.location}
                     </div>
                   )}
-                  {job.salary && (
-                    <div className="flex items-center gap-1">
-                      <DollarSign size={16} className="text-gray-400" />
-                      {job.salary}
-                    </div>
-                  )}
                   <div className="flex items-center gap-1">
                     <Clock size={16} className="text-gray-400" />
-                    {formatTime(job.postedAt)}
+                    {formatTime(new Date(job.createdAt))}
                   </div>
                   <div className="flex items-center gap-1">
                     <Users size={16} className="text-gray-400" />
-                    {job.applicants} applicants
+                    {job.applicants || job.applicationCount || 0} applicants
                   </div>
                 </div>
 
@@ -373,16 +358,16 @@ export default function JobsPage() {
               </div>
 
               <div className="flex flex-col gap-2 justify-start">
-                {appliedJobs.has(job.id) ? (
+                {appliedJobs.has(job._id) ? (
                   <button
-                    onClick={() => handleApplyJob(job.id)}
+                    onClick={() => handleApplyJob(job._id)}
                     className="px-6 py-2 bg-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-400 transition-all whitespace-nowrap"
                   >
-                    Applied ✓
+                    Applied
                   </button>
                 ) : (
                   <button
-                    onClick={() => handleApplyJob(job.id)}
+                    onClick={() => handleApplyJob(job._id)}
                     disabled={user?.role === 'admin' || user?.role === 'alumni'}
                     className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
                   >
@@ -399,7 +384,7 @@ export default function JobsPage() {
           </div>
         ))}
 
-        {filteredJobs.length === 0 && (
+        {!isJobsLoading && filteredJobs.length === 0 && (
           <div className="text-center py-12">
             <Briefcase size={48} className="mx-auto text-gray-300 mb-4" />
             <p className="text-gray-600 text-lg">No jobs found</p>

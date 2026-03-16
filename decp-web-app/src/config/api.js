@@ -1,12 +1,11 @@
 import axios from 'axios';
 
-// API endpoints - Adjust based on your deployment
 const API_ENDPOINTS = {
-  AUTH_SERVICE: 'http://localhost:3000/api/auth',
-  USER_SERVICE: 'http://localhost:3000/api/users',
-  CONTENT_SERVICE: 'http://localhost:3000/api/content',
-  NOTIFICATION_SERVICE: 'http://localhost:3000/api/notifications',
-  CHAT_SERVICE: 'http://localhost:3000/api/chat',
+  AUTH_SERVICE: import.meta.env.VITE_API_AUTH_SERVICE || 'http://localhost:3001/api/auth',
+  USER_SERVICE: import.meta.env.VITE_API_USER_SERVICE || 'http://localhost:3001/api/users',
+  CONTENT_SERVICE: import.meta.env.VITE_API_CONTENT_SERVICE || 'http://localhost:3002',
+  NOTIFICATION_SERVICE: import.meta.env.VITE_API_NOTIFICATION_SERVICE || 'http://localhost:4003',
+  CHAT_SERVICE: import.meta.env.VITE_API_CHAT_SERVICE || 'http://localhost:4004',
 };
 
 // Create axios instances with auth token
