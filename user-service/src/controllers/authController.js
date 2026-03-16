@@ -5,9 +5,15 @@ const RefreshToken = require('../models/RefreshToken');
 const crypto = require('crypto');
 
 // Helper to generate access and refresh tokens
-const generateTokens = async (userId) => {
+const generateTokens = async (user) => {
     const accessToken = jwt.sign(
-        { userId },
+        {
+            userId: user._id,
+            role: user.role,
+            fullName: user.fullName,
+            headline: user.headline,
+            profilePicUrl: user.profilePicUrl
+        },
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRE || '15m' }
     );
@@ -20,7 +26,7 @@ const generateTokens = async (userId) => {
     const expiresAt = new Date(Date.now() + expireDays * 24 * 60 * 60 * 1000);
 
     await RefreshToken.create({
-        userId,
+        userId: user._id,
         tokenHash,
         expiresAt,
     });
@@ -59,7 +65,7 @@ const register = async (req, res) => {
         });
 
         if (user) {
-            const { accessToken, refreshToken } = await generateTokens(user._id);
+            const { accessToken, refreshToken } = await generateTokens(user);
 
             // Set cookie options
             const cookieOptions = {
@@ -113,7 +119,7 @@ const login = async (req, res) => {
         // Validate password
         if (user && (await bcrypt.compare(password, user.passwordHash))) {
 
-            const { accessToken, refreshToken } = await generateTokens(user._id);
+            const { accessToken, refreshToken } = await generateTokens(user);
 
             // Set cookie options
             const cookieOptions = {

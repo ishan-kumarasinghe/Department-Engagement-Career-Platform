@@ -1,84 +1,48 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useEffect, useState } from 'react';
 import {
+  Briefcase,
   Heart,
   MessageCircle,
-  Briefcase,
-  User,
   Settings,
   Trash2,
+  User,
 } from 'lucide-react';
+import { notificationApi } from '../config/api';
 
 export default function NotificationsPage() {
-  const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
-  const [filter, setFilter] = useState('all'); // all, unread, likes, comments, jobs
+  const [filter, setFilter] = useState('all');
   const [preferences, setPreferences] = useState({
     likesNotifications: true,
     commentsNotifications: true,
     jobNotifications: true,
     messageNotifications: true,
   });
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 
-  // Mock data
   useEffect(() => {
-    const mockNotifications = [
-      {
-        id: '1',
-        type: 'like',
-        actor: { _id: 'user1', fullName: 'Alice Johnson' },
-        targetType: 'post',
-        targetId: 'post1',
-        message: 'liked your post',
-        timestamp: new Date(Date.now() - 10 * 60 * 1000),
-        read: false,
-      },
-      {
-        id: '2',
-        type: 'comment',
-        actor: { _id: 'user2', fullName: 'Bob Smith' },
-        targetType: 'post',
-        targetId: 'post1',
-        message: 'commented on your post: "Great work!"',
-        timestamp: new Date(Date.now() - 30 * 60 * 1000),
-        read: false,
-      },
-      {
-        id: '3',
-        type: 'job',
-        actor: { _id: 'user3', fullName: 'Carol Davis' },
-        message: 'posted a new Full-Stack Developer Internship',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        read: false,
-      },
-      {
-        id: '4',
-        type: 'job_application',
-        actor: { _id: 'user4', fullName: 'David Martin' },
-        message: 'applied for your Data Science Associate position',
-        timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000),
-        read: true,
-      },
-      {
-        id: '5',
-        type: 'like',
-        actor: { _id: 'user5', fullName: 'Emma Wilson' },
-        targetType: 'post',
-        targetId: 'post2',
-        message: 'liked your post',
-        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        read: true,
-      },
-      {
-        id: '6',
-        type: 'message',
-        actor: { _id: 'user1', fullName: 'Alice Johnson' },
-        message: 'sent you a message',
-        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-        read: true,
-      },
-    ];
-    setNotifications(mockNotifications);
+    const loadNotifications = async () => {
+      try {
+        setIsLoading(true);
+        setError('');
+        const [notificationsResponse, preferencesResponse] = await Promise.all([
+          notificationApi.get('/api/notifications'),
+          notificationApi.get('/api/notifications/preferences')
+        ]);
+
+        setNotifications(notificationsResponse.data.data.items || []);
+        setPreferences(preferencesResponse.data.data);
+      } catch (err) {
+        console.error('Failed to load notifications:', err);
+        setError(err.response?.data?.message || 'Failed to load notifications');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadNotifications();
   }, []);
 
   const getNotificationIcon = (type) => {
@@ -115,26 +79,50 @@ export default function NotificationsPage() {
     }
   };
 
-  const markAsRead = (id) => {
-    setNotifications(
-      notifications.map(notif =>
-        notif.id === id ? { ...notif, read: true } : notif
-      )
-    );
-
-    // In production, call notificationApi.post(`/api/notifications/${id}/read`)
+  const markAsRead = async (id) => {
+    try {
+      await notificationApi.put(`/api/notifications/${id}/read`);
+      setNotifications((currentNotifications) =>
+        currentNotifications.map((notification) =>
+          notification.id === id ? { ...notification, read: true, isRead: true } : notification
+        )
+      );
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(notif => ({ ...notif, read: true })));
-
-    // In production, call notificationApi.post('/api/notifications/read-all')
+  const markAllAsRead = async () => {
+    try {
+      await notificationApi.put('/api/notifications/read-all');
+      setNotifications((currentNotifications) =>
+        currentNotifications.map((notification) => ({ ...notification, read: true, isRead: true }))
+      );
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
+    }
   };
 
-  const deleteNotification = (id) => {
-    setNotifications(notifications.filter(notif => notif.id !== id));
+  const deleteNotification = async (id) => {
+    try {
+      await notificationApi.delete(`/api/notifications/${id}`);
+      setNotifications((currentNotifications) =>
+        currentNotifications.filter((notification) => notification.id !== id)
+      );
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+    }
+  };
 
-    // In production, call notificationApi.delete(`/api/notifications/${id}`)
+  const savePreferences = async () => {
+    try {
+      setIsSavingPreferences(true);
+      await notificationApi.put('/api/notifications/preferences', preferences);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save preferences');
+    } finally {
+      setIsSavingPreferences(false);
+    }
   };
 
   const formatTime = (date) => {
@@ -150,26 +138,25 @@ export default function NotificationsPage() {
     return `${days}d ago`;
   };
 
-  const filteredNotifications = notifications.filter(notif => {
-    if (filter === 'unread') return !notif.read;
-    if (filter === 'likes') return notif.type === 'like';
-    if (filter === 'comments') return notif.type === 'comment';
-    if (filter === 'jobs') return notif.type === 'job' || notif.type === 'job_application';
+  const filteredNotifications = notifications.filter((notification) => {
+    if (filter === 'unread') return !notification.read;
+    if (filter === 'likes') return notification.type === 'like';
+    if (filter === 'comments') return notification.type === 'comment';
+    if (filter === 'jobs') return notification.type === 'job' || notification.type === 'job_application';
     return true;
   });
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Header */}
       <div className="sticky top-0 bg-white border-b border-gray-200 z-30">
         <div className="p-6 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
             {unreadCount > 0 && (
               <p className="text-sm text-gray-600 mt-1">
-                {unreadCount} {unreadCount === 1 ? 'unread' : 'unread'}
+                {unreadCount} unread
               </p>
             )}
           </div>
@@ -186,7 +173,6 @@ export default function NotificationsPage() {
           </div>
         </div>
 
-        {/* Filter Tabs */}
         <div className="px-6 border-t border-gray-200 flex gap-4 overflow-x-auto">
           {[
             { id: 'all', label: 'All' },
@@ -194,7 +180,7 @@ export default function NotificationsPage() {
             { id: 'likes', label: 'Likes' },
             { id: 'comments', label: 'Comments' },
             { id: 'jobs', label: 'Jobs' },
-          ].map(tab => (
+          ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
@@ -210,10 +196,17 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {/* Notifications List */}
+      {error && (
+        <div className="m-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       <div className="divide-y divide-gray-200">
-        {filteredNotifications.length > 0 ? (
-          filteredNotifications.map(notification => (
+        {isLoading ? (
+          <div className="p-12 text-center text-gray-600">Loading notifications...</div>
+        ) : filteredNotifications.length > 0 ? (
+          filteredNotifications.map((notification) => (
             <div
               key={notification.id}
               onClick={() => markAsRead(notification.id)}
@@ -228,12 +221,10 @@ export default function NotificationsPage() {
 
                 <div className="flex-1 min-w-0">
                   <p className="text-gray-900">
-                    <span className="font-semibold">
-                      {notification.actor?.fullName}
-                    </span>{' '}
-                    <span className="text-gray-700">
-                      {notification.message}
-                    </span>
+                    {notification.actor?.fullName && (
+                      <span className="font-semibold">{notification.actor.fullName} </span>
+                    )}
+                    <span className="text-gray-700">{notification.message}</span>
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
                     {formatTime(new Date(notification.timestamp))}
@@ -261,13 +252,12 @@ export default function NotificationsPage() {
             <MessageCircle size={48} className="mx-auto text-gray-300 mb-4" />
             <p className="text-gray-600 text-lg">No notifications</p>
             <p className="text-gray-500 text-sm mt-1">
-              You're all caught up! Stay active to get new notifications.
+              You&apos;re all caught up! Stay active to get new notifications.
             </p>
           </div>
         )}
       </div>
 
-      {/* Notification Preferences */}
       <div className="m-6 bg-white border border-gray-200 rounded-lg p-6">
         <div className="flex items-center gap-3 mb-6">
           <Settings size={24} className="text-gray-700" />
@@ -288,29 +278,29 @@ export default function NotificationsPage() {
             },
             {
               id: 'jobNotifications',
-              label: 'New Job Postings',
-              description: 'Get notified about new jobs and internships',
+              label: 'Job Updates',
+              description: 'Get notified about job activity related to you',
             },
             {
               id: 'messageNotifications',
               label: 'Messages',
               description: 'Get notified when you receive a new message',
             },
-          ].map(pref => (
-            <div key={pref.id} className="flex items-center justify-between py-3 border-t border-gray-200">
+          ].map((preference) => (
+            <div key={preference.id} className="flex items-center justify-between py-3 border-t border-gray-200">
               <div>
-                <p className="font-medium text-gray-900">{pref.label}</p>
-                <p className="text-sm text-gray-600">{pref.description}</p>
+                <p className="font-medium text-gray-900">{preference.label}</p>
+                <p className="text-sm text-gray-600">{preference.description}</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={preferences[pref.id]}
+                  checked={preferences[preference.id]}
                   onChange={(e) =>
-                    setPreferences({
-                      ...preferences,
-                      [pref.id]: e.target.checked,
-                    })
+                    setPreferences((currentPreferences) => ({
+                      ...currentPreferences,
+                      [preference.id]: e.target.checked,
+                    }))
                   }
                   className="sr-only peer"
                 />
@@ -320,8 +310,12 @@ export default function NotificationsPage() {
           ))}
         </div>
 
-        <button className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium">
-          Save Preferences
+        <button
+          onClick={savePreferences}
+          disabled={isSavingPreferences}
+          className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-all font-medium"
+        >
+          {isSavingPreferences ? 'Saving...' : 'Save Preferences'}
         </button>
       </div>
     </div>

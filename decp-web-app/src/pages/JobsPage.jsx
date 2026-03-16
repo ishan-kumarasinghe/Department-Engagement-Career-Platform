@@ -41,8 +41,22 @@ export default function JobsPage() {
       try {
         setIsJobsLoading(true);
         setError('');
-        const response = await contentApi.get('/api/jobs');
-        setJobs(response.data.data.items || []);
+        const jobsRequest = contentApi.get('/api/jobs');
+        const applicationsRequest = user?.role === 'student'
+          ? contentApi.get('/api/jobs/applications/me')
+          : Promise.resolve({ data: { data: [] } });
+
+        const [jobsResponse, applicationsResponse] = await Promise.all([
+          jobsRequest,
+          applicationsRequest
+        ]);
+
+        setJobs(jobsResponse.data.data.items || []);
+        if (user?.role === 'student') {
+          setAppliedJobs(
+            new Set((applicationsResponse.data.data || []).map((application) => application.jobId))
+          );
+        }
       } catch (err) {
         console.error('Failed to fetch jobs:', err);
         setError(err.response?.data?.message || 'Failed to load jobs');
@@ -52,7 +66,7 @@ export default function JobsPage() {
     };
 
     loadJobs();
-  }, []);
+  }, [user?.role]);
 
   useEffect(() => {
     setShowCreateJob(location.pathname === '/create-job');

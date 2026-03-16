@@ -7,7 +7,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['POST_LIKED', 'COMMENT_ADDED', 'JOB_APPLIED', 'MESSAGE_RECEIVED', 'CONNECTION_REQUEST'],
+    enum: ['POST_LIKED', 'COMMENT_ADDED', 'JOB_APPLIED', 'JOB_POSTED', 'MESSAGE_RECEIVED', 'CONNECTION_REQUEST'],
     required: true
   },
   title: { type: String, required: true },

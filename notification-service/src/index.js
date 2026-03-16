@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const { connectRabbitMQ } = require('./rabbitmq/consumer');
+const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
@@ -14,9 +15,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-// app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 app.get('/health', (req, res) => res.send('Notification Service is running'));
+app.use(errorHandler);
 
 // Setup Service Connections
 const startServer = async () => {

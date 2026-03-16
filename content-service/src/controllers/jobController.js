@@ -202,6 +202,19 @@ const applyToJob = async (req, res) => {
   return sendSuccess(res, 201, mapApplication(application), 'Job application submitted successfully');
 };
 
+const getMyApplications = async (req, res) => {
+  const applications = await JobApplication.find({ applicantId: req.user.id })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return sendSuccess(
+    res,
+    200,
+    applications.map(mapApplication),
+    'Your job applications fetched successfully'
+  );
+};
+
 const getJobApplications = async (req, res) => {
   ensureObjectId(req.params.jobId, 'jobId');
 
@@ -233,5 +246,6 @@ module.exports = {
   applyToJob,
   createJob,
   getJobApplications,
+  getMyApplications,
   listJobs
 };
