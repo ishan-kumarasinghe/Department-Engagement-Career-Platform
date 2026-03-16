@@ -10,6 +10,27 @@ const conversationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     required: true
   }],
+  memberSnapshots: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true
+    },
+    fullName: {
+      type: String,
+      trim: true
+    },
+    role: {
+      type: String,
+      trim: true
+    },
+    headline: {
+      type: String,
+      trim: true
+    },
+    profilePicUrl: {
+      type: String
+    }
+  }],
   title: {
     type: String // Optional, for groups
   },

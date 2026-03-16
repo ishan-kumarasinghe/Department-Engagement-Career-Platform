@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-// app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api', require('./routes/chatRoutes'));
 
 app.get('/health', (req, res) => res.send('Chat Service is running'));
 
