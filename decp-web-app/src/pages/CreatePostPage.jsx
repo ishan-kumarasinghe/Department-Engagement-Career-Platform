@@ -6,19 +6,30 @@ import { contentApi } from '../config/api';
 import { ArrowLeft, Image, Smile, Loader } from 'lucide-react';
 
 export default function CreatePostPage() {
+  const emojiOptions = [
+    '\u{1F600}',
+    '\u{1F389}',
+    '\u{1F525}',
+    '\u{1F44F}',
+    '\u{1F4BC}',
+    '\u{1F680}',
+    '\u{2764}\u{FE0F}',
+    '\u{1F64C}',
+  ];
   const navigate = useNavigate();
   const { user } = useAuth();
   const [content, setContent] = useState('');
   const [images, setImages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
-    files.forEach(file => {
+    files.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setImages(prev => [...prev, event.target.result]);
+        setImages((prev) => [...prev, event.target.result]);
       };
       reader.readAsDataURL(file);
     });
@@ -35,12 +46,17 @@ export default function CreatePostPage() {
         media: images.map((url) => ({ url, type: 'image' })),
       });
       navigate('/');
-    } catch (error) {
-      console.error('Error creating post:', error);
-      setError(error.response?.data?.message || 'Failed to create post');
+    } catch (submitError) {
+      console.error('Error creating post:', submitError);
+      setError(submitError.response?.data?.message || 'Failed to create post');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleEmojiInsert = (emoji) => {
+    setContent((currentContent) => `${currentContent}${emoji}`);
+    setShowEmojiPicker(false);
   };
 
   return (
@@ -63,7 +79,6 @@ export default function CreatePostPage() {
             </div>
           )}
 
-          {/* User Info */}
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
               {user?.fullName?.charAt(0)}
@@ -74,7 +89,6 @@ export default function CreatePostPage() {
             </div>
           </div>
 
-          {/* Content Area */}
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -83,7 +97,6 @@ export default function CreatePostPage() {
             rows="8"
           />
 
-          {/* Image Preview */}
           {images.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
               {images.map((img, idx) => (
@@ -104,7 +117,6 @@ export default function CreatePostPage() {
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex gap-3 border-t border-gray-200 pt-4">
             <label className="flex items-center gap-2 flex-1 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer transition-all">
               <Image size={20} />
@@ -117,13 +129,33 @@ export default function CreatePostPage() {
                 className="hidden"
               />
             </label>
-            <button className="flex items-center gap-2 flex-1 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all">
-              <Smile size={20} />
-              <span className="hidden sm:inline">Emoji</span>
-            </button>
+            <div className="relative flex-1">
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker((currentState) => !currentState)}
+                className="flex w-full items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
+              >
+                <Smile size={20} />
+                <span className="hidden sm:inline">Emoji</span>
+              </button>
+
+              {showEmojiPicker && (
+                <div className="absolute right-0 top-full z-10 mt-2 flex gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
+                  {emojiOptions.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => handleEmojiInsert(emoji)}
+                      className="text-xl transition-transform hover:scale-110"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Submit Button */}
           <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 mt-4">
             <button
               onClick={() => navigate('/')}
