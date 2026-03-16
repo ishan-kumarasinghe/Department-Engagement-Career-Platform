@@ -10,6 +10,11 @@ const jobApplicationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     required: true
   },
+  applicantSnapshot: {
+    name: String,
+    profilePicUrl: String,
+    headline: String
+  },
   resumeUrl: { type: String },
   coverLetter: { type: String },
   status: {

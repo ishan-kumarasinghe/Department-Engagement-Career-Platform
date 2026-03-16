@@ -10,6 +10,11 @@ const commentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     required: true
   },
+  authorSnapshot: {
+    name: String,
+    profilePicUrl: String,
+    headline: String
+  },
   text: {
     type: String,
     required: true

@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const { connectRabbitMQ } = require('./rabbitmq/connection');
+const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
@@ -13,11 +14,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes (Uncomment as you add controllers)
-// app.use('/api/posts', require('./routes/postRoutes'));
-// app.use('/api/jobs', require('./routes/jobRoutes'));
+// Routes
+app.use('/api/posts', require('./routes/postRoutes'));
+app.use('/api/jobs', require('./routes/jobRoutes'));
 
 app.get('/health', (req, res) => res.send('Content Service is running'));
+app.use(errorHandler);
 
 // Setup Service Connections
 const startServer = async () => {
