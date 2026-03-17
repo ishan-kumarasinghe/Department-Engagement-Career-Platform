@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
 const unauthorized = (message = 'Unauthorized') => {
   const error = new Error(message);
@@ -92,7 +92,12 @@ const requireAuth = (req, res, next) => {
       throw unauthorized();
     }
 
-    const payload = verifyHs256(token, process.env.JWT_SECRET || 'decp-dev-secret');
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET || 'supersecret_user_service_key');
+    } catch (err) {
+      throw unauthorized('Invalid or expired token');
+    }
     const userId = payload.userId || payload.id || payload.sub;
 
     if (!userId) {

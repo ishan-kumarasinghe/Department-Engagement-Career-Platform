@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
 const decodeBase64Url = (value) => {
   const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
@@ -45,7 +45,12 @@ const protect = (req, res, next) => {
     }
 
     const token = authHeader.slice(7);
-    const payload = verifyToken(token, process.env.JWT_SECRET);
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET || 'supersecret_user_service_key');
+    } catch (err) {
+      throw new Error('Invalid or expired token');
+    }
 
     req.user = {
       _id: payload.userId,
