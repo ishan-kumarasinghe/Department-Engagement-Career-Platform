@@ -15,7 +15,7 @@ app.use(helmet());
 
 // CORS configuration (crucial to allow frontend to send cookies)
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173', // Adjust this to match your React/React Native URL
+  origin: true, // Dynamically mirror the origin of the incoming request (perfect for ALB)
   credentials: true, // MUST be true to accept HTTP-Only cookies from the frontend
 }));
 
