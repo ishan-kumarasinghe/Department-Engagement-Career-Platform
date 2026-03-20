@@ -7,7 +7,7 @@ const { connectRabbitMQ } = require('./rabbitmq/connection');
 
 const app = express();
 const corsOptions = {
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: true,
   credentials: true,
 };
 

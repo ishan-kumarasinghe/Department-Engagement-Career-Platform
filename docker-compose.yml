@@ -13,14 +13,73 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
-  # mongodb:
-  #   image: mongo:latest
-  #   container_name: decp_mongodb
-  #   ports:
-  #     - "27017:27017"
-  #   volumes:
-  #     - mongodb_data:/data/db
+  api-gateway:
+    build: ./api-gateway
+    container_name: decp_api_gateway
+    ports:
+      - "3000:3000"
+    env_file: ./api-gateway/.env
+    environment:
+      USER_SERVICE_URL: http://user-service:3001
+      CONTENT_SERVICE_URL: http://content-service:3002
+      NOTIFICATION_SERVICE_URL: http://notification-service:3003
+      CHAT_SERVICE_URL: http://chat-service:3004
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - user-service
+      - content-service
+      - notification-service
+      - chat-service
+
+  user-service:
+    build: ./user-service
+    container_name: decp_user_service
+    ports:
+      - "3001:3001"
+    env_file: ./user-service/.env
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+
+  content-service:
+    build: ./content-service
+    container_name: decp_content_service
+    ports:
+      - "3002:3002"
+    env_file: ./content-service/.env
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+
+  notification-service:
+    build: ./notification-service
+    container_name: decp_notification_service
+    ports:
+      - "3003:3003"
+    env_file: ./notification-service/.env
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+
+  chat-service:
+    build: ./chat-service
+    container_name: decp_chat_service
+    ports:
+      - "3004:3004"
+    env_file: ./chat-service/.env
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+
+  decp-web-app:
+    build: ./decp-web-app
+    container_name: decp_frontend
+    ports:
+      - "5173:80"
 
 volumes:
   rabbitmq_data:
-  # mongodb_data:

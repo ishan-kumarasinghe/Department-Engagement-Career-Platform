@@ -15,7 +15,7 @@ app.use(helmet());
 
 // CORS configuration (crucial to allow frontend to send cookies)
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173', // Adjust this to match your React/React Native URL
+  origin: true, // Dynamically mirror the origin of the incoming request (perfect for ALB)
   credentials: true, // MUST be true to accept HTTP-Only cookies from the frontend
 }));
 
@@ -49,14 +49,19 @@ const authLimiter = rateLimit({
 // Setup proxy options
 const proxyOptions = {
   changeOrigin: true, // Needed for virtual hosted sites
-  // Hook into proxy events here to log or modify requests/responses
+  timeout: 10000, // 10 second timeout to fail fast instead of waiting 60s
   onProxyReq: (proxyReq, req, res) => {
-    // Extract token from cookie and attach to Authorization header for internal services
+    console.log(`[PROXY] Forwarding ${req.method} ${req.path} -> ${proxyReq.getHeader('host')}`);
     if (req.cookies && req.cookies.accessToken) {
       proxyReq.setHeader('Authorization', `Bearer ${req.cookies.accessToken}`);
     }
-    // Also, if you need to forward the refresh token cookie specifically or all cookies:
-    // This is optional if your services aren't directly checking the auth cookie (except for user-service /refresh & /logout)
+  },
+  onError: (err, req, res) => {
+    console.error(`[PROXY ERROR] ${req.method} ${req.path} failed:`, err.message);
+    console.error(`[PROXY ERROR] Code: ${err.code}, Address: ${err.address}, Port: ${err.port}`);
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'Proxy failed', details: err.message });
+    }
   }
 };
 
@@ -92,5 +97,8 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 API Gateway is running on port ${PORT}`);
-  console.log(`Routes configured for User, Content, Notification, and Chat services.`);
+  console.log(`[DEBUG] USER_SERVICE_URL = ${process.env.USER_SERVICE_URL}`);
+  console.log(`[DEBUG] CONTENT_SERVICE_URL = ${process.env.CONTENT_SERVICE_URL}`);
+  console.log(`[DEBUG] NOTIFICATION_SERVICE_URL = ${process.env.NOTIFICATION_SERVICE_URL}`);
+  console.log(`[DEBUG] CHAT_SERVICE_URL = ${process.env.CHAT_SERVICE_URL}`);
 });
