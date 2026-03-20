@@ -6,6 +6,11 @@ const API_ENDPOINTS = {
   CONTENT_SERVICE: import.meta.env.VITE_API_CONTENT_SERVICE || 'http://localhost:3002',
   NOTIFICATION_SERVICE: import.meta.env.VITE_API_NOTIFICATION_SERVICE || 'http://localhost:3003',
   CHAT_SERVICE: import.meta.env.VITE_API_CHAT_SERVICE || 'http://localhost:3004',
+  // AUTH_SERVICE: import.meta.env.VITE_API_AUTH_SERVICE || '/api/auth',
+  // USER_SERVICE: import.meta.env.VITE_API_USER_SERVICE || '/api/users',
+  // CONTENT_SERVICE: import.meta.env.VITE_API_CONTENT_SERVICE || '/api/content',
+  // NOTIFICATION_SERVICE: import.meta.env.VITE_API_NOTIFICATION_SERVICE || '/api/notifications',
+  // CHAT_SERVICE: import.meta.env.VITE_API_CHAT_SERVICE || '/api/chat',
 };
 
 // Create axios instances with auth token
