@@ -1,20 +1,29 @@
+import 'react-native-gesture-handler';
+import React, { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import AppNavigator from './src/navigation/AppNavigator';
+import useAuthStore from './src/store/authStore';
+import useNotifStore from './src/store/notifStore';
 
 export default function App() {
+  const { loadStoredAuth, isAuthenticated } = useAuthStore();
+  const fetchNotifications = useNotifStore((s) => s.fetchNotifications);
+
+  useEffect(() => {
+    loadStoredAuth();
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchNotifications();
+    }
+  }, [isAuthenticated]);
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar style="light" />
+      <AppNavigator />
+    </GestureHandlerRootView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
